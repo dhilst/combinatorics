@@ -153,10 +153,42 @@
     }
 
     .seed-actions,
-    .answer-row {
+    .choices {
       display: grid;
-      gap: 10px;
       grid-template-columns: 1fr;
+      gap: 8px;
+    }
+
+    .choice {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      align-items: center;
+      gap: 10px;
+      min-height: 48px;
+      padding: 10px 12px;
+      text-align: left;
+      background: #151d16;
+    }
+
+    .choice b {
+      display: grid;
+      place-items: center;
+      width: 1.65rem;
+      height: 1.65rem;
+      border-radius: 999px;
+      background: #2f3a2a;
+      color: var(--accent);
+      font-size: 0.86rem;
+    }
+
+    .choice.correct {
+      border-color: var(--accent-2);
+      background: #173019;
+    }
+
+    .choice.wrong {
+      border-color: var(--danger);
+      background: #301816;
     }
 
     .primary {
@@ -392,10 +424,6 @@
       }
 
       .seed-actions,
-      .answer-row {
-        grid-template-columns: 1fr auto;
-      }
-
       .game {
         grid-template-rows: auto auto 1fr;
       }
@@ -461,10 +489,7 @@
               <span id="monsterLabel" class="monster">👺</span>
             </div>
             <p id="prompt" class="prompt"></p>
-            <form id="answerForm" class="answer-row">
-              <input id="answerInput" inputmode="decimal" autocomplete="off" placeholder="42.5 %" aria-label="Answer as a percent">
-              <button id="submitAnswer" class="primary" type="submit">🗡️ Strike</button>
-            </form>
+            <div id="choices" class="choices" role="group" aria-label="Answer choices"></div>
             <p id="hint" class="hint"></p>
           </section>
 
@@ -517,9 +542,7 @@
       roomLabel: document.querySelector("#roomLabel"),
       monsterLabel: document.querySelector("#monsterLabel"),
       prompt: document.querySelector("#prompt"),
-      answerForm: document.querySelector("#answerForm"),
-      answerInput: document.querySelector("#answerInput"),
-      submitAnswer: document.querySelector("#submitAnswer"),
+      choices: document.querySelector("#choices"),
       hint: document.querySelector("#hint"),
       log: document.querySelector("#log"),
       toast: document.querySelector("#toast"),
@@ -567,15 +590,6 @@
       return arr[Math.floor(rng() * arr.length)];
     }
 
-    function gcd(a, b) {
-      while (b) {
-        const t = b;
-        b = a % b;
-        a = t;
-      }
-      return Math.abs(a);
-    }
-
     function combinations(n, k) {
       if (k < 0 || k > n) return 0;
       k = Math.min(k, n - k);
@@ -592,6 +606,14 @@
       return result;
     }
 
+    function c(n, k) {
+      return `${n}c${k}`;
+    }
+
+    function r(n, k) {
+      return `${n}r${k}`;
+    }
+
     function percent(value) {
       return value * 100;
     }
@@ -603,14 +625,37 @@
       return `${Number(p.toFixed(4)).toString()} %`;
     }
 
-    function parsePercent(raw) {
-      const text = raw.trim();
-      const match = text.match(/^(\d{1,3})(?:\.(\d{1,4}))?\s*%$/);
-      if (!match) return null;
-      const value = Number(`${match[1]}${match[2] ? "." + match[2] : ""}`);
-      if (!Number.isFinite(value) || value < 0 || value > 100) return null;
-      if (value === 100 && match[2]) return null;
-      return value / 100;
+    function choiceKey(value) {
+      return formatPercent(value);
+    }
+
+    function makeChoices(answer, rng) {
+      const candidates = [clamp01(answer)];
+      const shifts = [0.05, 0.1, 0.15, 0.2, 0.25].sort(() => rng() - 0.5);
+      const transformed = [
+        1 - answer,
+        answer / 2,
+        answer * 1.5,
+        answer + shifts[0],
+        answer - shifts[1],
+        answer + (rng() > 0.5 ? shifts[2] : -shifts[2])
+      ];
+      for (const value of transformed) {
+        const clean = clamp01(value);
+        if (!candidates.some((existing) => choiceKey(existing) === choiceKey(clean))) {
+          candidates.push(clean);
+        }
+        if (candidates.length === 4) break;
+      }
+      while (candidates.length < 4) {
+        const value = int(rng, 1, 99) / 100;
+        if (!candidates.some((existing) => choiceKey(existing) === choiceKey(value))) {
+          candidates.push(value);
+        }
+      }
+      return candidates
+        .map((value) => ({ value, correct: Math.abs(value - answer) < 0.000001 }))
+        .sort(() => rng() - 0.5);
     }
 
     function makeProblem(rng, difficulty) {
@@ -626,7 +671,7 @@
             good += combinations(red, r) * combinations(n - red, draws - r);
           }
           return {
-            text: `A chest has ${red} red gems and ${n - red} blue gems. If you draw ${draws} without replacement, what is the chance of getting at least ${need} red?`,
+            text: `A chest has ${red} red gems and ${n - red} blue gems. If you draw ${draws} without replacement, what is the chance of at least ${need} red? Use NcM combinations: total ${c(n, draws)}.`,
             answer: good / total
           };
         },
@@ -637,7 +682,7 @@
           const total = permutations(n, k);
           const good = permutations(n - marked, k);
           return {
-            text: `A goblin lock uses ${k} different symbols chosen in order from ${n}. ${marked} symbols are cursed. What is the chance the lock uses no cursed symbols?`,
+            text: `A goblin lock uses ${k} different symbols chosen in order from ${n}. ${marked} symbols are cursed. What is the chance the lock uses no cursed symbols? Use NrM permutations: ${r(n - marked, k)} / ${r(n, k)}.`,
             answer: good / total
           };
         },
@@ -648,7 +693,7 @@
           const total = combinations(n, team);
           const good = combinations(n - heroes, team);
           return {
-            text: `From ${n} adventurers, a party of ${team} is chosen. ${heroes} are noisy bards. What is the chance the party has no noisy bard?`,
+            text: `From ${n} adventurers, a party of ${team} is chosen. ${heroes} are noisy bards. What is the chance the party has no noisy bard? Use NcM combinations: ${c(n - heroes, team)} / ${c(n, team)}.`,
             answer: good / total
           };
         },
@@ -678,7 +723,7 @@
           const total = combinations(n, k);
           const good = combinations(n - 1, k - 1);
           return {
-            text: `There are ${n} rune tiles and tile ${special} opens a secret door. If ${k} tiles are chosen, what is the chance tile ${special} is included?`,
+            text: `There are ${n} rune tiles and tile ${special} opens a secret door. If ${k} tiles are chosen, what is the chance tile ${special} is included? Use NcM combinations: ${c(n - 1, k - 1)} / ${c(n, k)}.`,
             answer: good / total
           };
         },
@@ -699,7 +744,7 @@
           const total = combinations(n, k);
           const good = combinations(n - 2, k - 2);
           return {
-            text: `A trap room has ${n} levers. ${k} are pulled at random. What is the chance levers ${a} and ${b} are both pulled?`,
+            text: `A trap room has ${n} levers. ${k} are pulled at random. What is the chance levers ${a} and ${b} are both pulled? Use NcM combinations: ${c(n - 2, k - 2)} / ${c(n, k)}.`,
             answer: good / total
           };
         },
@@ -710,7 +755,7 @@
           const total = combinations(n, draws);
           const good = combinations(n - bad, draws);
           return {
-            text: `A potion shelf has ${n} bottles, ${bad} poisoned. You take ${draws} without replacement. What is the chance none are poisoned?`,
+            text: `A potion shelf has ${n} bottles, ${bad} poisoned. You take ${draws} without replacement. What is the chance none are poisoned? Use NcM combinations: ${c(n - bad, draws)} / ${c(n, draws)}.`,
             answer: good / total
           };
         }
@@ -728,6 +773,7 @@
       const rng = mulberry32(roomSeed(x, y, depth));
       const difficulty = Math.min(7, Math.floor((depth + Math.abs(x) + Math.abs(y)) / 4));
       const problem = makeProblem(rng, difficulty);
+      const choices = makeChoices(problem.answer, rng);
       const threat = 1 + Math.floor(difficulty / 2);
       const id = `${depth}:${x}:${y}`;
       const isExit = Math.abs(x) + Math.abs(y) >= 5 && rng() > 0.72;
@@ -737,6 +783,7 @@
         y,
         depth,
         problem,
+        choices,
         threat,
         monster: choose(rng, monsters),
         loot: choose(rng, loot),
@@ -773,16 +820,10 @@
       state.feedback = null;
       if (!isSolved()) {
         state.locked = true;
-        els.answerInput.value = "";
-        els.answerInput.disabled = false;
-        els.submitAnswer.disabled = false;
       } else {
         state.locked = false;
-        els.answerInput.disabled = true;
-        els.submitAnswer.disabled = true;
       }
       render();
-      if (!isSolved()) setTimeout(() => els.answerInput.focus(), 80);
     }
 
     function render() {
@@ -802,10 +843,35 @@
         ? state.room.isExit
           ? "A staircase waits here. Rest to descend."
           : "Choose a direction to keep exploring."
-        : "Answer like 12.5 % or 100 %. The value is a probability written as a percent.";
+        : "Pick the correct percent. NcM means combinations; NrM means ordered selections.";
       renderMap();
+      renderChoices();
       renderMoves();
       renderLog();
+    }
+
+    function renderChoices() {
+      els.choices.innerHTML = "";
+      if (isSolved() || state.hp <= 0) {
+        els.choices.hidden = true;
+        return;
+      }
+      els.choices.hidden = false;
+      state.room.choices.forEach((choice, index) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "choice";
+        button.disabled = !state.locked;
+        button.setAttribute("aria-label", `Choice ${String.fromCharCode(65 + index)}: ${formatPercent(choice.value)}`);
+        button.addEventListener("click", () => submitAnswer(choice, button));
+
+        const key = document.createElement("b");
+        key.textContent = String.fromCharCode(65 + index);
+        const value = document.createElement("span");
+        value.textContent = formatPercent(choice.value);
+        button.append(key, value);
+        els.choices.appendChild(button);
+      });
     }
 
     function renderMap() {
@@ -858,30 +924,22 @@
       renderLog();
     }
 
-    function submitAnswer(raw) {
+    function submitAnswer(choice, button) {
       if (!state.room || isSolved() || state.hp <= 0) return;
-      const parsed = parsePercent(raw);
-      if (parsed === null) {
-        flash("Use a percent like 7.5 %, 99.99 %, or 100 %.");
-        els.hint.className = "hint bad";
-        els.hint.textContent = "The answer must include the % sign.";
-        return;
-      }
       const answer = state.room.problem.answer;
-      const tolerance = 0.00005;
-      if (Math.abs(parsed - answer) <= tolerance) {
+      if (choice.correct) {
         state.solved.add(state.room.id);
         state.locked = false;
         state.streak += 1;
         const reward = 2 + state.room.threat + Math.min(5, state.streak);
         state.gold += reward;
-        els.answerInput.disabled = true;
-        els.submitAnswer.disabled = true;
         state.feedback = { type: "good", text: `Correct: ${formatPercent(answer)}.` };
         addLog(`${state.room.loot} Correct. You gain ${reward} gold.`);
         render();
         return;
       }
+      button.classList.add("wrong");
+      button.disabled = true;
       state.hp -= state.room.threat;
       state.streak = 0;
       state.feedback = { type: "bad", text: `Miss. Expected ${formatPercent(answer)}.` };
@@ -895,8 +953,6 @@
 
     function gameOver() {
       state.locked = true;
-      els.answerInput.disabled = true;
-      els.submitAnswer.disabled = true;
       addLog(`💀 Run ended at depth ${state.depth} with ${state.gold} gold.`);
       flash("Run ended. Tap ↻ for a new seed.");
     }
@@ -952,11 +1008,6 @@
       els.seedInput.focus();
     });
 
-    els.answerForm.addEventListener("submit", (event) => {
-      event.preventDefault();
-      submitAnswer(els.answerInput.value);
-    });
-
     els.north.addEventListener("click", () => move(0, -1));
     els.south.addEventListener("click", () => move(0, 1));
     els.east.addEventListener("click", () => move(1, 0));
@@ -964,12 +1015,14 @@
     els.wait.addEventListener("click", restOrDescend);
 
     window.addEventListener("keydown", (event) => {
-      if (event.target === els.answerInput) return;
       if (event.key === "ArrowUp" || event.key.toLowerCase() === "w") move(0, -1);
       if (event.key === "ArrowDown" || event.key.toLowerCase() === "s") move(0, 1);
       if (event.key === "ArrowLeft" || event.key.toLowerCase() === "a") move(-1, 0);
       if (event.key === "ArrowRight" || event.key.toLowerCase() === "d") move(1, 0);
       if (event.key === " ") restOrDescend();
+      const choiceIndex = Number(event.key) - 1;
+      const choice = els.choices.querySelectorAll(".choice")[choiceIndex];
+      if (choice) choice.click();
     });
 
     els.seedInput.value = `goblin-${new Date().toISOString().slice(0, 10)}`;

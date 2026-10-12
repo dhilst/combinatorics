@@ -2,6 +2,8 @@
 
 A mobile-first infinite roguelike dungeon made with plain HTML, CSS, and JavaScript.
 
-Each room is deterministically generated from the selected seed and asks a combinatorics probability problem. Answers are entered as percentages, for example `12.5 %`, `99.99 %`, or `100 %`.
+Each room is deterministically generated from the selected seed and asks a combinatorics probability problem. Answers are multiple-choice percentages, for example `12.5 %`, `99.99 %`, or `100 %`.
+
+The game uses `NcM` for combinations and `NrM` for ordered selections/permutations, so `9c5` means choose 5 from 9 and `9r3` means arrange 3 from 9.
 
 Open `index.html` directly or publish the repository with GitHub Pages from the root of the `main` branch.
