@@ -1,0 +1,983 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Goblin Combinatorics Dungeon</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #10120f;
+      --panel: #1a1f1a;
+      --panel-2: #222920;
+      --ink: #f5f3df;
+      --muted: #c4c0a8;
+      --line: #394232;
+      --accent: #ffd15c;
+      --accent-2: #8fd175;
+      --danger: #ff796f;
+      --focus: #8ad7ff;
+      --shadow: rgba(0, 0, 0, 0.35);
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      min-height: 100%;
+      margin: 0;
+      background:
+        radial-gradient(circle at 30% 0%, rgba(255, 209, 92, 0.12), transparent 32rem),
+        linear-gradient(160deg, #10120f 0%, #141c17 52%, #0f1517 100%);
+      color: var(--ink);
+    }
+
+    body {
+      min-height: 100svh;
+      display: flex;
+      justify-content: center;
+      padding: max(12px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom));
+    }
+
+    button,
+    input {
+      font: inherit;
+    }
+
+    button {
+      min-height: 44px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #283123;
+      color: var(--ink);
+      box-shadow: 0 8px 20px var(--shadow);
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+
+    button:active {
+      transform: translateY(1px);
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.45;
+      transform: none;
+    }
+
+    input {
+      width: 100%;
+      min-height: 48px;
+      border: 1px solid #536248;
+      border-radius: 8px;
+      background: #10150f;
+      color: var(--ink);
+      padding: 10px 12px;
+      outline: none;
+    }
+
+    input:focus,
+    button:focus-visible {
+      border-color: var(--focus);
+      box-shadow: 0 0 0 3px rgba(138, 215, 255, 0.24);
+    }
+
+    .app {
+      width: min(100%, 880px);
+      min-height: calc(100svh - 24px);
+      display: grid;
+    }
+
+    .screen {
+      display: none;
+    }
+
+    .screen.active {
+      display: grid;
+    }
+
+    .start {
+      align-content: center;
+      gap: 18px;
+    }
+
+    .brand {
+      display: grid;
+      gap: 10px;
+      text-align: left;
+    }
+
+    h1,
+    h2,
+    p {
+      margin: 0;
+    }
+
+    h1 {
+      max-width: 100%;
+      font-size: clamp(1.85rem, 9.2vw, 5.8rem);
+      line-height: 0.88;
+      letter-spacing: 0;
+    }
+
+    h1 span {
+      display: block;
+      white-space: nowrap;
+    }
+
+    .subtitle {
+      max-width: 34rem;
+      color: var(--muted);
+      font-size: 1rem;
+      line-height: 1.45;
+    }
+
+    .seed-panel,
+    .problem,
+    .log,
+    .stats,
+    .map-wrap {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(26, 31, 26, 0.92);
+      box-shadow: 0 16px 40px var(--shadow);
+    }
+
+    .seed-panel {
+      display: grid;
+      gap: 12px;
+      padding: 14px;
+    }
+
+    .seed-actions,
+    .answer-row {
+      display: grid;
+      gap: 10px;
+      grid-template-columns: 1fr;
+    }
+
+    .primary {
+      border-color: #b58a2d;
+      background: #6b4f17;
+      color: #fff6cf;
+      font-weight: 700;
+    }
+
+    .ghost {
+      background: #172019;
+      color: var(--muted);
+    }
+
+    .game {
+      grid-template-rows: auto auto 1fr auto;
+      gap: 10px;
+    }
+
+    .topbar {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      align-items: center;
+      padding-top: 2px;
+    }
+
+    .titleline {
+      min-width: 0;
+    }
+
+    .titleline strong {
+      display: block;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 1.05rem;
+    }
+
+    .titleline span {
+      color: var(--muted);
+      font-size: 0.86rem;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1px;
+      overflow: hidden;
+      background: var(--line);
+    }
+
+    .stat {
+      min-width: 0;
+      padding: 9px 7px;
+      background: var(--panel);
+      text-align: center;
+    }
+
+    .stat b,
+    .stat span {
+      display: block;
+    }
+
+    .stat b {
+      font-size: 1rem;
+    }
+
+    .stat span {
+      color: var(--muted);
+      font-size: 0.72rem;
+    }
+
+    .main-grid {
+      display: grid;
+      gap: 10px;
+      align-content: start;
+    }
+
+    .map-wrap {
+      padding: 10px;
+    }
+
+    .map {
+      display: grid;
+      grid-template-columns: repeat(7, minmax(0, 1fr));
+      gap: 5px;
+      aspect-ratio: 1;
+      max-height: min(62svh, 520px);
+      margin: 0 auto;
+    }
+
+    .tile {
+      position: relative;
+      display: grid;
+      place-items: center;
+      min-width: 0;
+      border: 1px solid #30392e;
+      border-radius: 6px;
+      background: #111611;
+      font-size: clamp(1.08rem, 6.6vw, 2.1rem);
+      line-height: 1;
+      transition: border-color 120ms ease, transform 120ms ease, background 120ms ease;
+    }
+
+    .tile.current {
+      border-color: var(--accent);
+      background: #2b2614;
+      transform: scale(1.03);
+    }
+
+    .tile.solved {
+      background: #172618;
+    }
+
+    .tile.locked {
+      filter: grayscale(0.35);
+      opacity: 0.78;
+    }
+
+    .tile .mark {
+      position: absolute;
+      right: 3px;
+      bottom: 3px;
+      color: var(--accent-2);
+      font-size: 0.6em;
+    }
+
+    .problem {
+      display: grid;
+      gap: 10px;
+      padding: 13px;
+    }
+
+    .room-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      color: var(--muted);
+      font-size: 0.84rem;
+    }
+
+    .monster {
+      font-size: 1.1rem;
+      color: var(--danger);
+      white-space: nowrap;
+    }
+
+    .prompt {
+      font-size: 1.06rem;
+      line-height: 1.35;
+    }
+
+    .hint {
+      min-height: 1.35rem;
+      color: var(--muted);
+      font-size: 0.86rem;
+      line-height: 1.35;
+    }
+
+    .hint.good {
+      color: var(--accent-2);
+    }
+
+    .hint.bad {
+      color: var(--danger);
+    }
+
+    .moves {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-areas:
+        ". north ."
+        "west wait east"
+        ". south .";
+      gap: 8px;
+    }
+
+    .moves button {
+      padding: 0;
+      font-size: 1.25rem;
+    }
+
+    #north { grid-area: north; }
+    #west { grid-area: west; }
+    #wait { grid-area: wait; }
+    #east { grid-area: east; }
+    #south { grid-area: south; }
+
+    .log {
+      min-height: 72px;
+      max-height: 108px;
+      overflow: auto;
+      padding: 10px 12px;
+      color: var(--muted);
+      font-size: 0.84rem;
+      line-height: 1.35;
+    }
+
+    .log p + p {
+      margin-top: 6px;
+    }
+
+    .toast {
+      position: fixed;
+      left: 12px;
+      right: 12px;
+      bottom: max(12px, env(safe-area-inset-bottom));
+      z-index: 5;
+      display: none;
+      max-width: 520px;
+      margin: 0 auto;
+      padding: 12px 14px;
+      border: 1px solid #70504a;
+      border-radius: 8px;
+      background: #2a1715;
+      color: #ffe8e5;
+      box-shadow: 0 16px 40px var(--shadow);
+    }
+
+    .toast.show {
+      display: block;
+    }
+
+    @media (min-width: 680px) {
+      body {
+        padding: 20px;
+      }
+
+      .app {
+        min-height: calc(100svh - 40px);
+      }
+
+      .seed-actions,
+      .answer-row {
+        grid-template-columns: 1fr auto;
+      }
+
+      .game {
+        grid-template-rows: auto auto 1fr;
+      }
+
+      .main-grid {
+        grid-template-columns: minmax(290px, 0.92fr) minmax(320px, 1fr);
+        align-items: start;
+      }
+
+      .side {
+        display: grid;
+        gap: 10px;
+      }
+
+      .map {
+        max-height: 600px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <section id="startScreen" class="screen start active" aria-labelledby="gameTitle">
+      <div class="brand">
+        <h1 id="gameTitle"><span>Goblin</span><span>Combinatorics</span><span>Dungeon 🧮</span></h1>
+        <p class="subtitle">Every room is a seeded probability trap. Solve the percentage, survive the goblins, and descend forever.</p>
+      </div>
+      <form id="seedForm" class="seed-panel">
+        <label for="seedInput">Dungeon seed</label>
+        <input id="seedInput" name="seed" autocomplete="off" spellcheck="false" placeholder="try goblin-42">
+        <div class="seed-actions">
+          <button class="primary" type="submit">⚔️ Enter</button>
+          <button class="ghost" id="randomSeed" type="button">🎲 Random</button>
+        </div>
+      </form>
+    </section>
+
+    <section id="gameScreen" class="screen game" aria-label="Dungeon">
+      <header class="topbar">
+        <div class="titleline">
+          <strong>🕯️ Combinatorics Dungeon</strong>
+          <span id="seedLabel"></span>
+        </div>
+        <button id="newRun" class="ghost" type="button" aria-label="New run">↻</button>
+      </header>
+
+      <section class="stats" aria-label="Run stats">
+        <div class="stat"><b id="depthStat">1</b><span>Depth</span></div>
+        <div class="stat"><b id="hpStat">6</b><span>HP</span></div>
+        <div class="stat"><b id="goldStat">0</b><span>Gold</span></div>
+        <div class="stat"><b id="streakStat">0</b><span>Streak</span></div>
+      </section>
+
+      <div class="main-grid">
+        <section class="map-wrap" aria-label="Dungeon map">
+          <div id="map" class="map"></div>
+        </section>
+
+        <div class="side">
+          <section class="problem" aria-live="polite">
+            <div class="room-head">
+              <span id="roomLabel">Room</span>
+              <span id="monsterLabel" class="monster">👺</span>
+            </div>
+            <p id="prompt" class="prompt"></p>
+            <form id="answerForm" class="answer-row">
+              <input id="answerInput" inputmode="decimal" autocomplete="off" placeholder="42.5 %" aria-label="Answer as a percent">
+              <button id="submitAnswer" class="primary" type="submit">🗡️ Strike</button>
+            </form>
+            <p id="hint" class="hint"></p>
+          </section>
+
+          <nav class="moves" aria-label="Move">
+            <button id="north" type="button" aria-label="Move north">⬆️</button>
+            <button id="west" type="button" aria-label="Move west">⬅️</button>
+            <button id="wait" type="button" aria-label="Rest">🛡️</button>
+            <button id="east" type="button" aria-label="Move east">➡️</button>
+            <button id="south" type="button" aria-label="Move south">⬇️</button>
+          </nav>
+
+          <section id="log" class="log" aria-live="polite"></section>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    const state = {
+      seed: "",
+      seedHash: 0,
+      x: 0,
+      y: 0,
+      depth: 1,
+      hp: 6,
+      gold: 0,
+      streak: 0,
+      solved: new Set(),
+      room: null,
+      locked: false,
+      feedback: null,
+      log: []
+    };
+
+    const els = {
+      startScreen: document.querySelector("#startScreen"),
+      gameScreen: document.querySelector("#gameScreen"),
+      seedForm: document.querySelector("#seedForm"),
+      seedInput: document.querySelector("#seedInput"),
+      randomSeed: document.querySelector("#randomSeed"),
+      seedLabel: document.querySelector("#seedLabel"),
+      newRun: document.querySelector("#newRun"),
+      depthStat: document.querySelector("#depthStat"),
+      hpStat: document.querySelector("#hpStat"),
+      goldStat: document.querySelector("#goldStat"),
+      streakStat: document.querySelector("#streakStat"),
+      map: document.querySelector("#map"),
+      roomLabel: document.querySelector("#roomLabel"),
+      monsterLabel: document.querySelector("#monsterLabel"),
+      prompt: document.querySelector("#prompt"),
+      answerForm: document.querySelector("#answerForm"),
+      answerInput: document.querySelector("#answerInput"),
+      submitAnswer: document.querySelector("#submitAnswer"),
+      hint: document.querySelector("#hint"),
+      log: document.querySelector("#log"),
+      toast: document.querySelector("#toast"),
+      north: document.querySelector("#north"),
+      south: document.querySelector("#south"),
+      east: document.querySelector("#east"),
+      west: document.querySelector("#west"),
+      wait: document.querySelector("#wait")
+    };
+
+    const monsters = ["👺", "🧌", "🦴", "🕷️", "🧙", "💀"];
+    const loot = ["💰", "💎", "🗝️", "🍄", "📜"];
+
+    function hashString(text) {
+      let h = 2166136261;
+      for (let i = 0; i < text.length; i += 1) {
+        h ^= text.charCodeAt(i);
+        h = Math.imul(h, 16777619);
+      }
+      return h >>> 0;
+    }
+
+    function mulberry32(seed) {
+      return function next() {
+        seed |= 0;
+        seed = (seed + 0x6d2b79f5) | 0;
+        let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+    }
+
+    function roomSeed(x, y, depth) {
+      const a = Math.imul(x + 1000003, 73856093);
+      const b = Math.imul(y - 1000033, 19349663);
+      const c = Math.imul(depth + 97531, 83492791);
+      return (state.seedHash ^ a ^ b ^ c) >>> 0;
+    }
+
+    function int(rng, min, max) {
+      return Math.floor(rng() * (max - min + 1)) + min;
+    }
+
+    function choose(rng, arr) {
+      return arr[Math.floor(rng() * arr.length)];
+    }
+
+    function gcd(a, b) {
+      while (b) {
+        const t = b;
+        b = a % b;
+        a = t;
+      }
+      return Math.abs(a);
+    }
+
+    function combinations(n, k) {
+      if (k < 0 || k > n) return 0;
+      k = Math.min(k, n - k);
+      let result = 1;
+      for (let i = 1; i <= k; i += 1) {
+        result = (result * (n - k + i)) / i;
+      }
+      return Math.round(result);
+    }
+
+    function permutations(n, k) {
+      let result = 1;
+      for (let i = 0; i < k; i += 1) result *= n - i;
+      return result;
+    }
+
+    function percent(value) {
+      return value * 100;
+    }
+
+    function formatPercent(value) {
+      const p = percent(value);
+      if (Math.abs(p - 100) < 0.000001) return "100 %";
+      if (Number.isInteger(p)) return `${p}.0 %`;
+      return `${Number(p.toFixed(4)).toString()} %`;
+    }
+
+    function parsePercent(raw) {
+      const text = raw.trim();
+      const match = text.match(/^(\d{1,3})(?:\.(\d{1,4}))?\s*%$/);
+      if (!match) return null;
+      const value = Number(`${match[1]}${match[2] ? "." + match[2] : ""}`);
+      if (!Number.isFinite(value) || value < 0 || value > 100) return null;
+      if (value === 100 && match[2]) return null;
+      return value / 100;
+    }
+
+    function makeProblem(rng, difficulty) {
+      const templates = [
+        () => {
+          const n = int(rng, 5 + difficulty, 11 + difficulty);
+          const red = int(rng, 1, n - 2);
+          const draws = int(rng, 2, Math.min(4, n - 1));
+          const need = int(rng, 1, Math.min(draws, red));
+          const total = combinations(n, draws);
+          let good = 0;
+          for (let r = need; r <= Math.min(red, draws); r += 1) {
+            good += combinations(red, r) * combinations(n - red, draws - r);
+          }
+          return {
+            text: `A chest has ${red} red gems and ${n - red} blue gems. If you draw ${draws} without replacement, what is the chance of getting at least ${need} red?`,
+            answer: good / total
+          };
+        },
+        () => {
+          const n = int(rng, 5, 9 + difficulty);
+          const k = int(rng, 2, Math.min(4, n - 1));
+          const marked = int(rng, 1, n - 1);
+          const total = permutations(n, k);
+          const good = permutations(n - marked, k);
+          return {
+            text: `A goblin lock uses ${k} different symbols chosen in order from ${n}. ${marked} symbols are cursed. What is the chance the lock uses no cursed symbols?`,
+            answer: good / total
+          };
+        },
+        () => {
+          const n = int(rng, 5, 10 + difficulty);
+          const team = int(rng, 2, Math.min(5, n - 1));
+          const heroes = int(rng, 1, Math.min(3, n - team + 1));
+          const total = combinations(n, team);
+          const good = combinations(n - heroes, team);
+          return {
+            text: `From ${n} adventurers, a party of ${team} is chosen. ${heroes} are noisy bards. What is the chance the party has no noisy bard?`,
+            answer: good / total
+          };
+        },
+        () => {
+          const sides = int(rng, 4, 8 + difficulty);
+          const dice = int(rng, 2, 3);
+          const threshold = int(rng, dice + 1, dice * sides);
+          let good = 0;
+          const total = sides ** dice;
+          const roll = (left, sum) => {
+            if (left === 0) {
+              if (sum >= threshold) good += 1;
+              return;
+            }
+            for (let face = 1; face <= sides; face += 1) roll(left - 1, sum + face);
+          };
+          roll(dice, 0);
+          return {
+            text: `A goblin rolls ${dice} fair ${sides}-sided bone dice. What is the chance the sum is at least ${threshold}?`,
+            answer: good / total
+          };
+        },
+        () => {
+          const n = int(rng, 5, 10 + difficulty);
+          const k = int(rng, 2, Math.min(5, n));
+          const special = int(rng, 1, n);
+          const total = combinations(n, k);
+          const good = combinations(n - 1, k - 1);
+          return {
+            text: `There are ${n} rune tiles and tile ${special} opens a secret door. If ${k} tiles are chosen, what is the chance tile ${special} is included?`,
+            answer: good / total
+          };
+        },
+        () => {
+          const n = int(rng, 4, 8 + difficulty);
+          const total = n * n;
+          const good = n;
+          return {
+            text: `Two goblins independently pick one of ${n} tunnels. What is the chance they pick the same tunnel?`,
+            answer: good / total
+          };
+        },
+        () => {
+          const n = int(rng, 5, 9 + difficulty);
+          const k = int(rng, 2, Math.min(4, n));
+          const a = int(rng, 1, n);
+          const b = a === n ? 1 : a + 1;
+          const total = combinations(n, k);
+          const good = combinations(n - 2, k - 2);
+          return {
+            text: `A trap room has ${n} levers. ${k} are pulled at random. What is the chance levers ${a} and ${b} are both pulled?`,
+            answer: good / total
+          };
+        },
+        () => {
+          const n = int(rng, 5, 9 + difficulty);
+          const bad = int(rng, 1, Math.min(3, n - 2));
+          const draws = int(rng, 2, Math.min(4, n - bad));
+          const total = combinations(n, draws);
+          const good = combinations(n - bad, draws);
+          return {
+            text: `A potion shelf has ${n} bottles, ${bad} poisoned. You take ${draws} without replacement. What is the chance none are poisoned?`,
+            answer: good / total
+          };
+        }
+      ];
+      const problem = choose(rng, templates)();
+      problem.answer = clamp01(problem.answer);
+      return problem;
+    }
+
+    function clamp01(value) {
+      return Math.max(0, Math.min(1, value));
+    }
+
+    function getRoom(x = state.x, y = state.y, depth = state.depth) {
+      const rng = mulberry32(roomSeed(x, y, depth));
+      const difficulty = Math.min(7, Math.floor((depth + Math.abs(x) + Math.abs(y)) / 4));
+      const problem = makeProblem(rng, difficulty);
+      const threat = 1 + Math.floor(difficulty / 2);
+      const id = `${depth}:${x}:${y}`;
+      const isExit = Math.abs(x) + Math.abs(y) >= 5 && rng() > 0.72;
+      return {
+        id,
+        x,
+        y,
+        depth,
+        problem,
+        threat,
+        monster: choose(rng, monsters),
+        loot: choose(rng, loot),
+        isExit
+      };
+    }
+
+    function isSolved(room = state.room) {
+      return state.solved.has(room.id);
+    }
+
+    function start(seed) {
+      state.seed = seed.trim() || `goblin-${Date.now().toString(36)}`;
+      state.seedHash = hashString(state.seed);
+      state.x = 0;
+      state.y = 0;
+      state.depth = 1;
+      state.hp = 6;
+      state.gold = 0;
+      state.streak = 0;
+      state.solved = new Set();
+      state.locked = false;
+      state.feedback = null;
+      state.log = [];
+      els.seedLabel.textContent = `Seed: ${state.seed}`;
+      els.startScreen.classList.remove("active");
+      els.gameScreen.classList.add("active");
+      addLog(`🕳️ You enter seed "${state.seed}". The stairs vanish behind you.`);
+      enterRoom();
+    }
+
+    function enterRoom() {
+      state.room = getRoom();
+      state.feedback = null;
+      if (!isSolved()) {
+        state.locked = true;
+        els.answerInput.value = "";
+        els.answerInput.disabled = false;
+        els.submitAnswer.disabled = false;
+      } else {
+        state.locked = false;
+        els.answerInput.disabled = true;
+        els.submitAnswer.disabled = true;
+      }
+      render();
+      if (!isSolved()) setTimeout(() => els.answerInput.focus(), 80);
+    }
+
+    function render() {
+      els.depthStat.textContent = state.depth;
+      els.hpStat.textContent = state.hp;
+      els.goldStat.textContent = state.gold;
+      els.streakStat.textContent = state.streak;
+      els.roomLabel.textContent = `Depth ${state.depth} · (${state.x}, ${state.y})`;
+      els.monsterLabel.textContent = isSolved() ? `${state.room.loot} cleared` : `${state.room.monster} threat ${state.room.threat}`;
+      els.prompt.textContent = isSolved()
+        ? `This room is quiet. The answer was ${formatPercent(state.room.problem.answer)}.`
+        : state.room.problem.text;
+      els.hint.className = `hint${state.feedback ? " " + state.feedback.type : ""}`;
+      els.hint.textContent = state.feedback
+        ? state.feedback.text
+        : isSolved()
+        ? state.room.isExit
+          ? "A staircase waits here. Rest to descend."
+          : "Choose a direction to keep exploring."
+        : "Answer like 12.5 % or 100 %. The value is a probability written as a percent.";
+      renderMap();
+      renderMoves();
+      renderLog();
+    }
+
+    function renderMap() {
+      els.map.innerHTML = "";
+      for (let dy = -3; dy <= 3; dy += 1) {
+        for (let dx = -3; dx <= 3; dx += 1) {
+          const x = state.x + dx;
+          const y = state.y + dy;
+          const room = getRoom(x, y, state.depth);
+          const tile = document.createElement("div");
+          tile.className = "tile";
+          if (dx === 0 && dy === 0) tile.classList.add("current");
+          if (state.solved.has(room.id)) tile.classList.add("solved");
+          if (!state.solved.has(room.id)) tile.classList.add("locked");
+          tile.textContent = dx === 0 && dy === 0 ? "🧝" : room.isExit ? "🪜" : room.monster;
+          if (state.solved.has(room.id)) {
+            const mark = document.createElement("span");
+            mark.className = "mark";
+            mark.textContent = "✓";
+            tile.appendChild(mark);
+          }
+          els.map.appendChild(tile);
+        }
+      }
+    }
+
+    function renderMoves() {
+      const canMove = !state.locked && state.hp > 0;
+      els.north.disabled = !canMove;
+      els.south.disabled = !canMove;
+      els.east.disabled = !canMove;
+      els.west.disabled = !canMove;
+      els.wait.disabled = state.hp <= 0;
+      els.wait.textContent = !state.locked && state.room && state.room.isExit ? "🪜" : "🛡️";
+    }
+
+    function renderLog() {
+      els.log.innerHTML = "";
+      state.log.slice(-5).forEach((line) => {
+        const p = document.createElement("p");
+        p.textContent = line;
+        els.log.appendChild(p);
+      });
+      els.log.scrollTop = els.log.scrollHeight;
+    }
+
+    function addLog(line) {
+      state.log.push(line);
+      if (state.log.length > 30) state.log.shift();
+      renderLog();
+    }
+
+    function submitAnswer(raw) {
+      if (!state.room || isSolved() || state.hp <= 0) return;
+      const parsed = parsePercent(raw);
+      if (parsed === null) {
+        flash("Use a percent like 7.5 %, 99.99 %, or 100 %.");
+        els.hint.className = "hint bad";
+        els.hint.textContent = "The answer must include the % sign.";
+        return;
+      }
+      const answer = state.room.problem.answer;
+      const tolerance = 0.00005;
+      if (Math.abs(parsed - answer) <= tolerance) {
+        state.solved.add(state.room.id);
+        state.locked = false;
+        state.streak += 1;
+        const reward = 2 + state.room.threat + Math.min(5, state.streak);
+        state.gold += reward;
+        els.answerInput.disabled = true;
+        els.submitAnswer.disabled = true;
+        state.feedback = { type: "good", text: `Correct: ${formatPercent(answer)}.` };
+        addLog(`${state.room.loot} Correct. You gain ${reward} gold.`);
+        render();
+        return;
+      }
+      state.hp -= state.room.threat;
+      state.streak = 0;
+      state.feedback = { type: "bad", text: `Miss. Expected ${formatPercent(answer)}.` };
+      addLog(`${state.room.monster} Wrong answer. The goblins hit for ${state.room.threat}.`);
+      if (state.hp <= 0) {
+        state.hp = 0;
+        gameOver();
+      }
+      render();
+    }
+
+    function gameOver() {
+      state.locked = true;
+      els.answerInput.disabled = true;
+      els.submitAnswer.disabled = true;
+      addLog(`💀 Run ended at depth ${state.depth} with ${state.gold} gold.`);
+      flash("Run ended. Tap ↻ for a new seed.");
+    }
+
+    function move(dx, dy) {
+      if (state.locked || state.hp <= 0) return;
+      state.x += dx;
+      state.y += dy;
+      addLog(`🚪 You move to (${state.x}, ${state.y}).`);
+      enterRoom();
+    }
+
+    function restOrDescend() {
+      if (state.hp <= 0) return;
+      if (!state.locked && state.room && state.room.isExit) {
+        state.depth += 1;
+        state.x = 0;
+        state.y = 0;
+        state.hp = Math.min(6 + Math.floor(state.depth / 3), state.hp + 2);
+        addLog(`🪜 You descend to depth ${state.depth}. The seed twists the dungeon again.`);
+        enterRoom();
+        return;
+      }
+      if (state.locked) {
+        flash("Solve the room before resting.");
+        return;
+      }
+      state.hp = Math.min(6 + Math.floor(state.depth / 3), state.hp + 1);
+      addLog("🛡️ You catch your breath and recover 1 HP.");
+      render();
+    }
+
+    function flash(message) {
+      els.toast.textContent = message;
+      els.toast.classList.add("show");
+      clearTimeout(flash.timer);
+      flash.timer = setTimeout(() => els.toast.classList.remove("show"), 2200);
+    }
+
+    els.seedForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      start(els.seedInput.value);
+    });
+
+    els.randomSeed.addEventListener("click", () => {
+      const rng = Math.random().toString(36).slice(2, 8);
+      els.seedInput.value = `goblin-${rng}`;
+    });
+
+    els.newRun.addEventListener("click", () => {
+      els.gameScreen.classList.remove("active");
+      els.startScreen.classList.add("active");
+      els.seedInput.focus();
+    });
+
+    els.answerForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      submitAnswer(els.answerInput.value);
+    });
+
+    els.north.addEventListener("click", () => move(0, -1));
+    els.south.addEventListener("click", () => move(0, 1));
+    els.east.addEventListener("click", () => move(1, 0));
+    els.west.addEventListener("click", () => move(-1, 0));
+    els.wait.addEventListener("click", restOrDescend);
+
+    window.addEventListener("keydown", (event) => {
+      if (event.target === els.answerInput) return;
+      if (event.key === "ArrowUp" || event.key.toLowerCase() === "w") move(0, -1);
+      if (event.key === "ArrowDown" || event.key.toLowerCase() === "s") move(0, 1);
+      if (event.key === "ArrowLeft" || event.key.toLowerCase() === "a") move(-1, 0);
+      if (event.key === "ArrowRight" || event.key.toLowerCase() === "d") move(1, 0);
+      if (event.key === " ") restOrDescend();
+    });
+
+    els.seedInput.value = `goblin-${new Date().toISOString().slice(0, 10)}`;
+    const urlSeed = new URLSearchParams(window.location.search).get("seed");
+    if (urlSeed) {
+      els.seedInput.value = urlSeed;
+      start(urlSeed);
+    }
+  </script>
+</body>
+</html>
